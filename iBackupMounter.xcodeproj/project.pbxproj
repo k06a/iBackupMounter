@@ -18,6 +18,8 @@
 		25CC2FFB18FEB102005053AC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25CC2FDA18FEB102005053AC /* Cocoa.framework */; };
 		25CC300318FEB102005053AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 25CC300118FEB102005053AC /* InfoPlist.strings */; };
 		25CC300518FEB102005053AC /* iBackupMounterTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 25CC300418FEB102005053AC /* iBackupMounterTests.m */; };
+		25CC301218FEB885005053AC /* OSXFUSE.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25CC301118FEB885005053AC /* OSXFUSE.framework */; };
+		25CC301518FECBB5005053AC /* ABFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = 25CC301418FECBB5005053AC /* ABFileSystem.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +52,9 @@
 		25CC300018FEB102005053AC /* iBackupMounterTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iBackupMounterTests-Info.plist"; sourceTree = "<group>"; };
 		25CC300218FEB102005053AC /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		25CC300418FEB102005053AC /* iBackupMounterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = iBackupMounterTests.m; sourceTree = "<group>"; };
+		25CC301118FEB885005053AC /* OSXFUSE.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = OSXFUSE.framework; sourceTree = "<group>"; };
+		25CC301318FECBB5005053AC /* ABFileSystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ABFileSystem.h; sourceTree = "<group>"; };
+		25CC301418FECBB5005053AC /* ABFileSystem.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ABFileSystem.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,6 +62,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				25CC301218FEB885005053AC /* OSXFUSE.framework in Frameworks */,
 				25CC2FDB18FEB102005053AC /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -95,6 +101,7 @@
 		25CC2FD918FEB102005053AC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				25CC301118FEB885005053AC /* OSXFUSE.framework */,
 				25CC2FDA18FEB102005053AC /* Cocoa.framework */,
 				25CC2FF918FEB102005053AC /* XCTest.framework */,
 				25CC2FDC18FEB102005053AC /* Other Frameworks */,
@@ -118,6 +125,8 @@
 				25CC2FEC18FEB102005053AC /* ABAppDelegate.h */,
 				25CC2FED18FEB102005053AC /* ABAppDelegate.m */,
 				25CC2FEF18FEB102005053AC /* MainMenu.xib */,
+				25CC301318FECBB5005053AC /* ABFileSystem.h */,
+				25CC301418FECBB5005053AC /* ABFileSystem.m */,
 				25CC2FF218FEB102005053AC /* Images.xcassets */,
 				25CC2FE118FEB102005053AC /* Supporting Files */,
 			);
@@ -254,6 +263,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				25CC2FE718FEB102005053AC /* main.m in Sources */,
+				25CC301518FECBB5005053AC /* ABFileSystem.m in Sources */,
 				25CC2FEE18FEB102005053AC /* ABAppDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -387,6 +397,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "iBackupMounter/iBackupMounter-Prefix.pch";
 				INFOPLIST_FILE = "iBackupMounter/iBackupMounter-Info.plist";
@@ -400,6 +414,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "iBackupMounter/iBackupMounter-Prefix.pch";
 				INFOPLIST_FILE = "iBackupMounter/iBackupMounter-Info.plist";

@@ -1,0 +1,120 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='1.0'>
+<depends_on path='/System/Library/Frameworks/Foundation.framework'/>
+<depends_on path='/System/Library/Frameworks/CoreFoundation.framework'/>
+<constant name='kGMUserFileSystemCustomIconDataKey' type='@'/>
+<constant name='kGMUserFileSystemDidMount' type='@'/>
+<constant name='kGMUserFileSystemDidUnmount' type='@'/>
+<constant name='kGMUserFileSystemErrorDomain' type='@'/>
+<constant name='kGMUserFileSystemErrorKey' type='@'/>
+<constant name='kGMUserFileSystemFileAccessDateKey' type='@'/>
+<constant name='kGMUserFileSystemFileBackupDateKey' type='@'/>
+<constant name='kGMUserFileSystemFileChangeDateKey' type='@'/>
+<constant name='kGMUserFileSystemFileFlagsKey' type='@'/>
+<constant name='kGMUserFileSystemFinderExtendedFlagsKey' type='@'/>
+<constant name='kGMUserFileSystemFinderFlagsKey' type='@'/>
+<constant name='kGMUserFileSystemMountFailed' type='@'/>
+<constant name='kGMUserFileSystemMountPathKey' type='@'/>
+<constant name='kGMUserFileSystemVolumeSupportsExtendedDatesKey' type='@'/>
+<constant name='kGMUserFileSystemWeblocURLKey' type='@'/>
+<enum name='DoubleEntryAFPFileInfo' value='14'/>
+<enum name='DoubleEntryBlackAndWhiteIcon' value='5'/>
+<enum name='DoubleEntryColorIcon' value='6'/>
+<enum name='DoubleEntryComment' value='4'/>
+<enum name='DoubleEntryDataFork' value='1'/>
+<enum name='DoubleEntryDirectoryID' value='15'/>
+<enum name='DoubleEntryFileDatesInfo' value='8'/>
+<enum name='DoubleEntryFinderInfo' value='9'/>
+<enum name='DoubleEntryInvalid' value='0'/>
+<enum name='DoubleEntryMSDosFileinfo' value='12'/>
+<enum name='DoubleEntryMacFileInfo' value='10'/>
+<enum name='DoubleEntryProDosFileInfo' value='11'/>
+<enum name='DoubleEntryRealName' value='3'/>
+<enum name='DoubleEntryResourceFork' value='2'/>
+<enum name='DoubleEntryShortName' value='13'/>
+<class name='GMAppleDouble'>
+<method selector='addEntriesFromAppleDoubleData:'>
+<retval type='B'/>
+</method>
+</class>
+<class name='GMUserFileSystem'>
+<method selector='initWithDelegate:isThreadSafe:'>
+<arg index='1' type='B'/>
+</method>
+<method selector='mountAtPath:withOptions:shouldForeground:detachNewThread:'>
+<arg index='2' type='B'/>
+<arg index='3' type='B'/>
+</method>
+</class>
+<class name='NSObject'>
+<method selector='createDirectoryAtPath:attributes:error:'>
+<retval type='B'/>
+</method>
+<method selector='createFileAtPath:attributes:userData:error:'>
+<retval type='B'/>
+</method>
+<method selector='createSymbolicLinkAtPath:withDestinationPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='exchangeDataOfItemAtPath:withItemAtPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='linkItemAtPath:toPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='moveItemAtPath:toPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='openFileAtPath:mode:userData:error:'>
+<retval type='B'/>
+</method>
+<method selector='removeDirectoryAtPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='removeExtendedAttribute:ofItemAtPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='removeItemAtPath:error:'>
+<retval type='B'/>
+</method>
+<method selector='setAttributes:ofItemAtPath:userData:error:'>
+<retval type='B'/>
+</method>
+<method selector='setExtendedAttribute:ofItemAtPath:value:position:options:error:'>
+<retval type='B'/>
+</method>
+</class>
+<informal_protocol name='GMUserFileSystemLifecycle'>
+<method selector='willMount' type='v8@0:4' type64='v16@0:8'/>
+<method selector='willUnmount' type='v8@0:4' type64='v16@0:8'/>
+</informal_protocol>
+<informal_protocol name='GMUserFileSystemOperations'>
+<method selector='attributesOfFileSystemForPath:error:' type='@16@0:4@8^@12' type64='@32@0:8@16^@24'/>
+<method selector='attributesOfItemAtPath:userData:error:' type='@20@0:4@8@12^@16' type64='@40@0:8@16@24^@32'/>
+<method selector='contentsAtPath:' type='@12@0:4@8' type64='@24@0:8@16'/>
+<method selector='contentsOfDirectoryAtPath:error:' type='@16@0:4@8^@12' type64='@32@0:8@16^@24'/>
+<method selector='createDirectoryAtPath:attributes:error:' type='B20@0:4@8@12^@16' type64='B40@0:8@16@24^@32'/>
+<method selector='createFileAtPath:attributes:userData:error:' type='B24@0:4@8@12^@16^@20' type64='B48@0:8@16@24^@32^@40'/>
+<method selector='createSymbolicLinkAtPath:withDestinationPath:error:' type='B20@0:4@8@12^@16' type64='B40@0:8@16@24^@32'/>
+<method selector='destinationOfSymbolicLinkAtPath:error:' type='@16@0:4@8^@12' type64='@32@0:8@16^@24'/>
+<method selector='exchangeDataOfItemAtPath:withItemAtPath:error:' type='B20@0:4@8@12^@16' type64='B40@0:8@16@24^@32'/>
+<method selector='extendedAttributesOfItemAtPath:error:' type='@16@0:4@8^@12' type64='@32@0:8@16^@24'/>
+<method selector='linkItemAtPath:toPath:error:' type='B20@0:4@8@12^@16' type64='B40@0:8@16@24^@32'/>
+<method selector='moveItemAtPath:toPath:error:' type='B20@0:4@8@12^@16' type64='B40@0:8@16@24^@32'/>
+<method selector='openFileAtPath:mode:userData:error:' type='B24@0:4@8i12^@16^@20' type64='B44@0:8@16i24^@28^@36'/>
+<method selector='readFileAtPath:userData:buffer:size:offset:error:' type='i36@0:4@8@12*16L20q24^@32' type64='i64@0:8@16@24*32Q40q48^@56'/>
+<method selector='releaseFileAtPath:userData:' type='v16@0:4@8@12' type64='v32@0:8@16@24'/>
+<method selector='removeDirectoryAtPath:error:' type='B16@0:4@8^@12' type64='B32@0:8@16^@24'/>
+<method selector='removeExtendedAttribute:ofItemAtPath:error:' type='B20@0:4@8@12^@16' type64='B40@0:8@16@24^@32'/>
+<method selector='removeItemAtPath:error:' type='B16@0:4@8^@12' type64='B32@0:8@16^@24'/>
+<method selector='setAttributes:ofItemAtPath:userData:error:' type='B24@0:4@8@12@16^@20' type64='B48@0:8@16@24@32^@40'/>
+<method selector='setExtendedAttribute:ofItemAtPath:value:position:options:error:' type='B36@0:4@8@12@16q20i28^@32' type64='B60@0:8@16@24@32q40i48^@52'/>
+<method selector='valueOfExtendedAttribute:ofItemAtPath:position:error:' type='@28@0:4@8@12q16^@24' type64='@48@0:8@16@24q32^@40'/>
+<method selector='writeFileAtPath:userData:buffer:size:offset:error:' type='i36@0:4@8@12r*16L20q24^@32' type64='i64@0:8@16@24r*32Q40q48^@56'/>
+</informal_protocol>
+<informal_protocol name='GMUserFileSystemResourceForks'>
+<method selector='finderAttributesAtPath:error:' type='@16@0:4@8^@12' type64='@32@0:8@16^@24'/>
+<method selector='resourceAttributesAtPath:error:' type='@16@0:4@8^@12' type64='@32@0:8@16^@24'/>
+</informal_protocol>
+</signatures>
