@@ -69,9 +69,12 @@ static NSString *helloPath = @"/hello.txt";
         path = [path substringFromIndex:1];
     NSMutableDictionary *node = self.tree;
     for (NSString *token in [path pathComponents]) {
-        if (!node[token])
-            node[token] = [NSMutableDictionary dictionary];
-        node = node[token];
+        id nextNode = node[token];
+        if (!nextNode) {
+            nextNode = [NSMutableDictionary dictionary];
+            node[token] = nextNode;
+        }
+        node = nextNode;
     }
     return node;
 }
@@ -134,8 +137,7 @@ static NSString *helloPath = @"/hello.txt";
             NSString *dataHash = [self readString:data offset:&offset];
             NSString *encryptionKey = [self readString:data offset:&offset];
             NSInteger mode = [self readWord:data offset:&offset];
-            NSInteger inode = [self readInt:data offset:&offset];
-            NSInteger unknown = [self readInt:data offset:&offset];
+            uint64_t inode = [self readLong:data offset:&offset];
             NSInteger uid = [self readInt:data offset:&offset];
             NSInteger gid = [self readInt:data offset:&offset];
             NSInteger mtime = [self readInt:data offset:&offset];
@@ -153,8 +155,17 @@ static NSString *helloPath = @"/hello.txt";
                 /*NSMutableDictionary *node = [self growTreeToPath:[path stringByAppendingPathComponent:name]];
                 node[@"/mode"] = @(mode);
                 node[@"/file"] = @YES;
-                */NSLog(@"Property %@ = %@",name,value);
+                */
+                //NSLog(@"Property %@ = %@",name,value);
             }
+            
+            NSString *key = nil;
+            if (mode & 0x8000)
+                key = @"/file";
+            else if (mode & 0x4000)
+                key = @"/dir";
+            else
+                continue;
             
             NSString *virtualPath = domain;
             if ([virtualPath rangeOfString:@"AppDomain-"].location != NSNotFound)
@@ -165,9 +176,11 @@ static NSString *helloPath = @"/hello.txt";
             node[@"/mode"] = @(mode);
             node[@"/domain"] = domain;
             node[@"/path"] = path;
-            NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
+            node[@"/mdate"] = @(mtime);
+            node[@"/cdate"] = @(ctime);
+            node[key] = @YES;
+            //NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
         }
-        
     }
     return self;
 }
@@ -189,11 +202,10 @@ static NSString *helloPath = @"/hello.txt";
         return @{NSFileType:NSFileTypeDirectory};
     
     NSDictionary *node = [self growTreeToPath:path];
-    if ([node[@"/length"] integerValue] > 0)
-        return @{NSFileType:NSFileTypeRegular,
-                 NSFileSize:node[@"/length"]};
-    
-    return @{NSFileType:NSFileTypeDirectory};
+    return @{NSFileType:node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
+             NSFileSize:node[@"/length"],
+             NSFileModificationDate:[NSDate dateWithTimeIntervalSince1970:[node[@"/mdate"] doubleValue]],
+             NSFileCreationDate:[NSDate dateWithTimeIntervalSince1970:[node[@"/cdate"] doubleValue]]};
 }
 
 - (NSData *)contentsAtPath:(NSString *)path {

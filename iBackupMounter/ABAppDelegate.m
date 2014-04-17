@@ -39,10 +39,25 @@
 {
     NSString *path = [[self backupsPath] stringByAppendingPathComponent:backup];
     NSString *info = [NSString stringWithContentsOfFile:[path stringByAppendingPathComponent:@"info.plist"] encoding:NSUTF8StringEncoding error:NULL];
+    
     NSRange range = [info rangeOfString:@"<key>Display Name</key>"];
     NSInteger begin = [info rangeOfString:@">" options:0 range:NSMakeRange(range.location+range.length, 100)].location + 1;
     NSInteger end = [info rangeOfString:@"<" options:0 range:NSMakeRange(begin, 100)].location;
-    return [info substringWithRange:NSMakeRange(begin, end-begin)];
+    NSString *name = [info substringWithRange:NSMakeRange(begin, end-begin)];
+    
+    range = [info rangeOfString:@"<key>Last Backup Date</key>"];
+    begin = [info rangeOfString:@">" options:0 range:NSMakeRange(range.location+range.length, 100)].location + 1;
+    end = [info rangeOfString:@"<" options:0 range:NSMakeRange(begin, 100)].location;
+    NSString *date = [[[info substringWithRange:NSMakeRange(begin, end-begin)]
+                      stringByReplacingOccurrencesOfString:@"T" withString:@" "]
+                      stringByReplacingOccurrencesOfString:@"Z" withString:@""];
+    
+    range = [info rangeOfString:@"<key>Product Version</key>"];
+    begin = [info rangeOfString:@">" options:0 range:NSMakeRange(range.location+range.length, 100)].location + 1;
+    end = [info rangeOfString:@"<" options:0 range:NSMakeRange(begin, 100)].location;
+    NSString *version = [info substringWithRange:NSMakeRange(begin, end-begin)];
+    
+    return [NSString stringWithFormat:@"%@ with iOS %@ (%@)",name,version,date];
 }
 
 - (void)updateBackupPopUp
@@ -98,7 +113,13 @@
                    name:kGMUserFileSystemDidUnmount object:nil];
     
     [self updateBackupPopUp];
-    [self backupSelected:self.backupPopUpButton];
+    if (self.backups.count > 0)
+        [self backupSelected:self.backupPopUpButton];
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
+{
+    return YES;
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender

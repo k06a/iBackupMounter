@@ -676,21 +676,27 @@
                 <rect key="frame" x="0.0" y="0.0" width="480" height="360"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ZCc-Qn-g8m">
-                        <rect key="frame" x="20" y="320" width="68" height="17"/>
+                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ZCc-Qn-g8m">
+                        <rect key="frame" x="18" y="321" width="54" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="17" id="rpL-1u-NE5"/>
+                        </constraints>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Backup:" id="NMi-1L-1vY">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <popUpButton verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Xro-aC-Ii7">
-                        <rect key="frame" x="92" y="315" width="371" height="26"/>
+                    <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Xro-aC-Ii7">
+                        <rect key="frame" x="76" y="316" width="387" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="21" id="FLo-Aj-qjK"/>
+                        </constraints>
                         <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" id="C0D-Gs-08w">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                            <font key="font" metaFont="system"/>
+                            <font key="font" metaFont="menu"/>
                             <menu key="menu" title="OtherViews" id="IkB-tG-TYr">
                                 <items>
                                     <menuItem title="Item 1" id="oEk-Qc-Q3O"/>
@@ -704,6 +710,13 @@
                         </connections>
                     </popUpButton>
                 </subviews>
+                <constraints>
+                    <constraint firstItem="ZCc-Qn-g8m" firstAttribute="centerY" secondItem="Xro-aC-Ii7" secondAttribute="centerY" id="0bB-A4-65W"/>
+                    <constraint firstAttribute="trailing" secondItem="Xro-aC-Ii7" secondAttribute="trailing" constant="20" id="3wY-c8-grX"/>
+                    <constraint firstItem="Xro-aC-Ii7" firstAttribute="top" secondItem="EiT-Mj-1SZ" secondAttribute="top" constant="20" id="DHH-5T-KTY"/>
+                    <constraint firstItem="ZCc-Qn-g8m" firstAttribute="leading" secondItem="EiT-Mj-1SZ" secondAttribute="leading" constant="20" id="gZi-Gu-2rO"/>
+                    <constraint firstItem="Xro-aC-Ii7" firstAttribute="leading" secondItem="ZCc-Qn-g8m" secondAttribute="trailing" constant="8" id="l7g-ya-QHP"/>
+                </constraints>
             </view>
         </window>
     </objects>
