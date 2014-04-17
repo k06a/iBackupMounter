@@ -12,4 +12,7 @@
 
 - (instancetype)initWithBackupPath:(NSString *)backupPath;
 
+@property (strong, nonatomic) void(^wasModifiedBlock)();
+- (BOOL)saveChanges;
+
 @end

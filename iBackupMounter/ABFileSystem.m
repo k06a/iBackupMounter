@@ -41,6 +41,8 @@ static NSString *helloPath = @"/hello.txt";
 @interface ABFileSystem ()
 @property (strong, nonatomic) NSString *backupPath;
 @property (strong, nonatomic) NSMutableDictionary *tree;
+@property (strong, nonatomic) NSMutableData *backupData;
+@property (strong, nonatomic) NSMutableArray *pathsToRemove;
 @end
 
 @implementation ABFileSystem
@@ -50,6 +52,13 @@ static NSString *helloPath = @"/hello.txt";
     if (_tree == nil)
         _tree = [NSMutableDictionary dictionary];
     return _tree;
+}
+
+- (NSMutableArray *)pathsToRemove
+{
+    if (_pathsToRemove == nil)
+        _pathsToRemove = [NSMutableArray array];
+    return _pathsToRemove;
 }
 
 - (NSString *)sha1:(NSString *)text
@@ -118,7 +127,7 @@ static NSString *helloPath = @"/hello.txt";
     {
         self.backupPath = backupPath;
         
-        NSData *data = [NSData dataWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Manifest.mbdb"]];
+        NSMutableData *data = [NSMutableData dataWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Manifest.mbdb"]];
         if ([data byteAt:0] != 'm'
             || [data byteAt:1] != 'b'
             || [data byteAt:2] != 'd'
@@ -130,7 +139,9 @@ static NSString *helloPath = @"/hello.txt";
         }
         
         NSInteger offset = 6;
-        while (offset < data.length) {
+        while (offset < data.length)
+        {
+            NSInteger begin_offset = offset;
             NSString *domain = [self readString:data offset:&offset];
             NSString *path = [self readString:data offset:&offset];
             NSString *linkTarget = [self readString:data offset:&offset];
@@ -178,11 +189,28 @@ static NSString *helloPath = @"/hello.txt";
             node[@"/path"] = path;
             node[@"/mdate"] = @(mtime);
             node[@"/cdate"] = @(ctime);
+            node[@"/rec_offset"] = @(begin_offset);
+            node[@"/rec_length"] = @(offset-begin_offset);
             node[key] = @YES;
             //NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
         }
+        
+        self.backupData = data;
     }
     return self;
+}
+
+- (BOOL)saveChanges
+{
+    NSString *manifestPath = [self.backupPath stringByAppendingPathComponent:@"Manifest.mbdb"];
+    if (![self.backupData writeToFile:manifestPath atomically:YES])
+        return NO;
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    for (NSString *filename in self.pathsToRemove)
+        [fileManager removeItemAtPath:filename error:NULL];
+    
+    return YES;
 }
 
 - (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error {
@@ -208,10 +236,33 @@ static NSString *helloPath = @"/hello.txt";
              NSFileCreationDate:[NSDate dateWithTimeIntervalSince1970:[node[@"/cdate"] doubleValue]]};
 }
 
-- (NSData *)contentsAtPath:(NSString *)path {
+- (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error
+{
     NSDictionary *node = [self growTreeToPath:path];
-    NSString *filename = [self sha1:[NSString stringWithFormat:@"%@-%@",node[@"/domain"],node[@"/path"]]];
-    return [NSData dataWithContentsOfFile:[self.backupPath stringByAppendingPathComponent:filename]];
+    NSInteger offset = [node[@"/rec_offset"] integerValue];
+    NSInteger length = [node[@"/rec_length"] integerValue];
+    if (length == 0)
+        return NO;
+    [self.backupData replaceBytesInRange:NSMakeRange(offset, length) withBytes:NULL length:0];
+    [self.pathsToRemove addObject:[self realPathToNode:node]];
+    NSMutableDictionary *parentNode = [self growTreeToPath:[path stringByDeletingLastPathComponent]];
+    if (parentNode != node)
+        [parentNode removeObjectForKey:[path lastPathComponent]];
+    if (self.wasModifiedBlock)
+        self.wasModifiedBlock();
+    return YES;
+}
+
+- (NSString *)realPathToNode:(NSDictionary *)node
+{
+    return [self.backupPath stringByAppendingPathComponent:[self sha1:[NSString stringWithFormat:@"%@-%@",node[@"/domain"],node[@"/path"]]]];
+}
+
+- (NSData *)contentsAtPath:(NSString *)path
+{
+    NSDictionary *node = [self growTreeToPath:path];
+    NSString *filename = [self realPathToNode:node];
+    return [NSData dataWithContentsOfFile:filename];
 }
 
 @end

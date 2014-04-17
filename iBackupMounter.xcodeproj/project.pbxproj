@@ -170,6 +170,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 25CC300818FEB102005053AC /* Build configuration list for PBXNativeTarget "iBackupMounter" */;
 			buildPhases = (
+				257995151900793200E0A6F1 /* Run Script Build Number Increment */,
 				25CC2FD318FEB102005053AC /* Sources */,
 				25CC2FD418FEB102005053AC /* Frameworks */,
 				25CC2FD518FEB102005053AC /* Resources */,
@@ -256,6 +257,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		257995151900793200E0A6F1 /* Run Script Build Number Increment */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script Build Number Increment";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/bash\nbuildNumber=$(/usr/libexec/PlistBuddy -c \"Print CFBundleVersion\" \"$INFOPLIST_FILE\")\nbuildNumber=$(($buildNumber + 1))\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $buildNumber\" \"$INFOPLIST_FILE\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		25CC2FD318FEB102005053AC /* Sources */ = {
@@ -404,6 +422,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "iBackupMounter/iBackupMounter-Prefix.pch";
 				INFOPLIST_FILE = "iBackupMounter/iBackupMounter-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -421,6 +440,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "iBackupMounter/iBackupMounter-Prefix.pch";
 				INFOPLIST_FILE = "iBackupMounter/iBackupMounter-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
 			};
@@ -485,6 +505,7 @@
 				25CC300A18FEB102005053AC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		25CC300B18FEB102005053AC /* Build configuration list for PBXNativeTarget "iBackupMounterTests" */ = {
 			isa = XCConfigurationList;
@@ -493,6 +514,7 @@
 				25CC300D18FEB102005053AC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

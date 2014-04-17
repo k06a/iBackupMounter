@@ -10,12 +10,16 @@
 #import "ABAppDelegate.h"
 #import "ABFileSystem.h"
 
-@interface ABAppDelegate ()
+@interface ABAppDelegate () <NSWindowDelegate>
 @property (weak, nonatomic) IBOutlet NSPopUpButton *backupPopUpButton;
+@property (weak) IBOutlet NSButton *readOnlyButton;
+@property (weak) IBOutlet NSButton *saveButton;
 
 @property (strong, nonatomic) NSArray *backups;
 @property (strong, nonatomic) GMUserFileSystem *fs;
 @property (strong, nonatomic) ABFileSystem *fsObject;
+@property (assign, nonatomic) NSInteger selectedIndex;
+@property (assign, nonatomic) NSInteger indexToSelectAfterSaveOrDiscard;
 @end
 
 @implementation ABAppDelegate
@@ -68,15 +72,49 @@
     }
 }
 
+- (void)save:(id)sender
+{
+    [self savePressed:nil];
+    [self.backupPopUpButton selectItemAtIndex:self.indexToSelectAfterSaveOrDiscard];
+}
+
+- (void)discard:(id)sender
+{
+    self.saveButton.enabled = NO;
+    [self.backupPopUpButton selectItemAtIndex:self.indexToSelectAfterSaveOrDiscard];
+}
+
 - (IBAction)backupSelected:(NSPopUpButton *)sender
 {
+    if (self.saveButton.isEnabled) {
+        NSAlert *alert = [[NSAlert alloc] init];
+        alert.messageText = @"Save or discard changes of backup?";
+        NSButton *discard = [alert addButtonWithTitle:@"Discard"];
+        discard.target = self;
+        discard.action = @selector(discard:);
+        NSButton *save = [alert addButtonWithTitle:@"Save"];
+        save.target = self;
+        save.action = @selector(save:);
+        [alert addButtonWithTitle:@"Cancel"];
+        [alert runModal];
+        
+        self.indexToSelectAfterSaveOrDiscard = sender.indexOfSelectedItem;
+        [self.backupPopUpButton selectItemAtIndex:self.selectedIndex];
+        return;
+    }
+    
+    self.selectedIndex = sender.indexOfSelectedItem;
     NSString *path = [[self backupsPath] stringByAppendingPathComponent:self.backups[sender.indexOfSelectedItem]];
     
     if (self.fs)
-        [self.fs unmount];
+        [self unmount];
     
     @try {
         self.fsObject = [[ABFileSystem alloc] initWithBackupPath:path];
+        __weak typeof(self) this = self;
+        self.fsObject.wasModifiedBlock = ^{
+            this.saveButton.enabled = YES;
+        };
     }
     @catch (NSException *exception) {
         NSAlert *alert = [[NSAlert alloc] init];
@@ -87,7 +125,31 @@
     
     NSString* mountPath = @"/Volumes/iBackupMounter";
     self.fs = [[GMUserFileSystem alloc] initWithDelegate:self.fsObject isThreadSafe:YES];
-    [self.fs mountAtPath:mountPath withOptions:@[@"rdonly", @"volname=iBackupMounter"]];//, [NSString stringWithFormat:@"volicon=%@",[[NSBundle mainBundle] pathForResource:@"Fuse" ofType:@"icns"]]]];
+    if (self.readOnlyButton.state == NSOnState) {
+        [self.fs mountAtPath:mountPath withOptions:@[@"rdonly", @"volname=iBackupMounter"]];
+        self.saveButton.hidden = YES;
+    } else {
+        [self.fs mountAtPath:mountPath withOptions:@[@"volname=iBackupMounter"]];
+        self.saveButton.hidden = NO;
+    }
+    
+    //[NSString stringWithFormat:@"volicon=%@",[[NSBundle mainBundle] pathForResource:@"Fuse" ofType:@"icns"]]]];
+}
+
+- (IBAction)readOnlyToggled:(NSButton *)sender
+{
+    [self backupSelected:self.backupPopUpButton];
+}
+
+- (IBAction)savePressed:(id)sender
+{
+    [self.fsObject saveChanges];
+    self.saveButton.enabled = NO;
+}
+
+- (void)unmount
+{
+    [self.fs unmount];
 }
 
 - (void)didMount:(NSNotification *)notification
@@ -124,9 +186,42 @@
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
+    if (self.saveButton.isEnabled) {
+        NSAlert *alert = [[NSAlert alloc] init];
+        alert.messageText = @"Save or discard changes of backup?";
+        NSButton *discard = [alert addButtonWithTitle:@"Discard"];
+        discard.target = self;
+        discard.action = @selector(discardAndQuit:);
+        NSButton *save = [alert addButtonWithTitle:@"Save"];
+        save.target = self;
+        save.action = @selector(saveAndQuit:);
+        [alert addButtonWithTitle:@"Cancel"];
+        [alert runModal];
+        
+        return NSTerminateCancel;
+    }
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [self.fs unmount];
+    [self unmount];
     return NSTerminateNow;
+}
+
+- (void)saveAndQuit:(NSButton *)sender
+{
+    [self savePressed:nil];
+    [[NSApplication sharedApplication] terminate:nil];
+}
+
+- (void)discardAndQuit:(NSButton *)sender
+{
+    self.saveButton.enabled = NO;
+    [[NSApplication sharedApplication] terminate:nil];
+}
+
+#pragma mark - Window
+
+- (BOOL)windowShouldClose:(id)sender
+{
+    return [self applicationShouldTerminate:[NSApplication sharedApplication]];
 }
 
 @end

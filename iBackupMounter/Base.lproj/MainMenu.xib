@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="5056" systemVersion="13C64" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
+        <deployment defaultVersion="1080" identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="5056"/>
     </dependencies>
     <objects>
@@ -14,6 +15,8 @@
         <customObject id="Voe-Tx-rLC" customClass="ABAppDelegate">
             <connections>
                 <outlet property="backupPopUpButton" destination="Xro-aC-Ii7" id="GjA-9X-ITY"/>
+                <outlet property="readOnlyButton" destination="a4b-f8-mtq" id="rSW-mA-s9o"/>
+                <outlet property="saveButton" destination="67n-i9-hxZ" id="GWP-qg-49L"/>
                 <outlet property="window" destination="QvC-M9-y7g" id="gIp-Ho-8D9"/>
             </connections>
         </customObject>
@@ -670,26 +673,16 @@
         <window title="iBackupMounter" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" animationBehavior="default" id="QvC-M9-y7g">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-            <rect key="contentRect" x="335" y="390" width="480" height="360"/>
+            <rect key="contentRect" x="183" y="602" width="500" height="102"/>
             <rect key="screenRect" x="0.0" y="0.0" width="1440" height="900"/>
+            <value key="minSize" type="size" width="300" height="102"/>
+            <value key="maxSize" type="size" width="500" height="102"/>
             <view key="contentView" id="EiT-Mj-1SZ">
-                <rect key="frame" x="0.0" y="0.0" width="480" height="360"/>
+                <rect key="frame" x="0.0" y="0.0" width="500" height="102"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ZCc-Qn-g8m">
-                        <rect key="frame" x="18" y="321" width="54" height="17"/>
-                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <constraints>
-                            <constraint firstAttribute="height" constant="17" id="rpL-1u-NE5"/>
-                        </constraints>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Backup:" id="NMi-1L-1vY">
-                            <font key="font" metaFont="system"/>
-                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        </textFieldCell>
-                    </textField>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Xro-aC-Ii7">
-                        <rect key="frame" x="76" y="316" width="387" height="26"/>
+                        <rect key="frame" x="18" y="58" width="465" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="21" id="FLo-Aj-qjK"/>
@@ -709,15 +702,50 @@
                             <action selector="backupSelected:" target="Voe-Tx-rLC" id="umR-Q7-Unb"/>
                         </connections>
                     </popUpButton>
+                    <button translatesAutoresizingMaskIntoConstraints="NO" id="a4b-f8-mtq">
+                        <rect key="frame" x="18" y="21" width="104" height="18"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="100" id="PMq-Qn-Q7k"/>
+                            <constraint firstAttribute="height" constant="14" id="XrI-Z7-1lK"/>
+                        </constraints>
+                        <buttonCell key="cell" type="check" title="Read Only" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="VPX-o4-TWi">
+                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                            <font key="font" metaFont="system"/>
+                        </buttonCell>
+                        <connections>
+                            <action selector="readOnlyToggled:" target="Voe-Tx-rLC" id="XjL-X7-HKI"/>
+                        </connections>
+                    </button>
+                    <button hidden="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="67n-i9-hxZ">
+                        <rect key="frame" x="404" y="13" width="82" height="32"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="70" id="H4d-mF-8kQ"/>
+                            <constraint firstAttribute="height" constant="21" id="VBG-gV-t2f"/>
+                        </constraints>
+                        <buttonCell key="cell" type="push" title="Save" bezelStyle="rounded" alignment="center" enabled="NO" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="EIc-Oy-vqe">
+                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                            <font key="font" metaFont="system"/>
+                        </buttonCell>
+                        <connections>
+                            <action selector="savePressed:" target="Voe-Tx-rLC" id="pbd-3E-lnD"/>
+                        </connections>
+                    </button>
                 </subviews>
                 <constraints>
-                    <constraint firstItem="ZCc-Qn-g8m" firstAttribute="centerY" secondItem="Xro-aC-Ii7" secondAttribute="centerY" id="0bB-A4-65W"/>
-                    <constraint firstAttribute="trailing" secondItem="Xro-aC-Ii7" secondAttribute="trailing" constant="20" id="3wY-c8-grX"/>
+                    <constraint firstItem="67n-i9-hxZ" firstAttribute="top" secondItem="Xro-aC-Ii7" secondAttribute="bottom" constant="20" id="2nn-G0-51W"/>
                     <constraint firstItem="Xro-aC-Ii7" firstAttribute="top" secondItem="EiT-Mj-1SZ" secondAttribute="top" constant="20" id="DHH-5T-KTY"/>
-                    <constraint firstItem="ZCc-Qn-g8m" firstAttribute="leading" secondItem="EiT-Mj-1SZ" secondAttribute="leading" constant="20" id="gZi-Gu-2rO"/>
-                    <constraint firstItem="Xro-aC-Ii7" firstAttribute="leading" secondItem="ZCc-Qn-g8m" secondAttribute="trailing" constant="8" id="l7g-ya-QHP"/>
+                    <constraint firstAttribute="trailing" secondItem="Xro-aC-Ii7" secondAttribute="trailing" constant="20" id="E2s-yX-Zti"/>
+                    <constraint firstAttribute="trailing" secondItem="67n-i9-hxZ" secondAttribute="trailing" constant="20" id="F9D-wN-o3q"/>
+                    <constraint firstItem="Xro-aC-Ii7" firstAttribute="leading" secondItem="EiT-Mj-1SZ" secondAttribute="leading" constant="20" id="JLF-Ep-04i"/>
+                    <constraint firstItem="a4b-f8-mtq" firstAttribute="leading" secondItem="EiT-Mj-1SZ" secondAttribute="leading" constant="20" id="nMw-I2-xL9"/>
+                    <constraint firstItem="67n-i9-hxZ" firstAttribute="centerY" secondItem="a4b-f8-mtq" secondAttribute="centerY" id="zog-Pm-1h5"/>
                 </constraints>
             </view>
+            <connections>
+                <outlet property="delegate" destination="Voe-Tx-rLC" id="1km-kk-KiQ"/>
+            </connections>
         </window>
     </objects>
 </document>
