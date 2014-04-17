@@ -13,6 +13,9 @@
 - (instancetype)initWithBackupPath:(NSString *)backupPath;
 
 @property (strong, nonatomic) void(^wasModifiedBlock)();
+@property (readonly, nonatomic) NSArray *networks;
+
 - (BOOL)saveChanges;
+- (void)discardChanges;
 
 @end

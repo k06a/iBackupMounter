@@ -10,14 +10,17 @@
 #import "ABAppDelegate.h"
 #import "ABFileSystem.h"
 
-@interface ABAppDelegate () <NSWindowDelegate>
+@interface ABAppDelegate () <NSWindowDelegate,NSTableViewDataSource,NSTableViewDelegate>
 @property (weak, nonatomic) IBOutlet NSPopUpButton *backupPopUpButton;
 @property (weak) IBOutlet NSButton *readOnlyButton;
 @property (weak) IBOutlet NSButton *saveButton;
+@property (weak) IBOutlet NSButton *discardButton;
+@property (weak) IBOutlet NSTableView *sourceTableView;
+@property (weak) IBOutlet NSTableView *dataTableView;
 
 @property (strong, nonatomic) NSArray *backups;
 @property (strong, nonatomic) GMUserFileSystem *fs;
-@property (strong, nonatomic) ABFileSystem *fsObject;
+@property (strong, nonatomic) ABFileSystem *fileSystem;
 @property (assign, nonatomic) NSInteger selectedIndex;
 @property (assign, nonatomic) NSInteger indexToSelectAfterSaveOrDiscard;
 @end
@@ -42,26 +45,16 @@
 - (NSString *)titleForBackup:(NSString *)backup
 {
     NSString *path = [[self backupsPath] stringByAppendingPathComponent:backup];
-    NSString *info = [NSString stringWithContentsOfFile:[path stringByAppendingPathComponent:@"info.plist"] encoding:NSUTF8StringEncoding error:NULL];
+    NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Info.plist"]];
+    NSDictionary *status = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Status.plist"]];
     
-    NSRange range = [info rangeOfString:@"<key>Display Name</key>"];
-    NSInteger begin = [info rangeOfString:@">" options:0 range:NSMakeRange(range.location+range.length, 100)].location + 1;
-    NSInteger end = [info rangeOfString:@"<" options:0 range:NSMakeRange(begin, 100)].location;
-    NSString *name = [info substringWithRange:NSMakeRange(begin, end-begin)];
-    
-    range = [info rangeOfString:@"<key>Last Backup Date</key>"];
-    begin = [info rangeOfString:@">" options:0 range:NSMakeRange(range.location+range.length, 100)].location + 1;
-    end = [info rangeOfString:@"<" options:0 range:NSMakeRange(begin, 100)].location;
-    NSString *date = [[[info substringWithRange:NSMakeRange(begin, end-begin)]
-                      stringByReplacingOccurrencesOfString:@"T" withString:@" "]
-                      stringByReplacingOccurrencesOfString:@"Z" withString:@""];
-    
-    range = [info rangeOfString:@"<key>Product Version</key>"];
-    begin = [info rangeOfString:@">" options:0 range:NSMakeRange(range.location+range.length, 100)].location + 1;
-    end = [info rangeOfString:@"<" options:0 range:NSMakeRange(begin, 100)].location;
-    NSString *version = [info substringWithRange:NSMakeRange(begin, end-begin)];
-    
-    return [NSString stringWithFormat:@"%@ with iOS %@ (%@)",name,version,date];
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    dateFormatter.dateStyle = NSDateFormatterLongStyle;
+    dateFormatter.timeStyle = NSDateFormatterLongStyle;
+    return [NSString stringWithFormat:@"%@ with iOS %@ (%@)",
+            info[@"Display Name"],
+            info[@"Product Version"],
+            [dateFormatter stringFromDate:status[@"Date"]]];
 }
 
 - (void)updateBackupPopUp
@@ -81,6 +74,7 @@
 - (void)discard:(id)sender
 {
     self.saveButton.enabled = NO;
+    self.discardButton.enabled = NO;
     [self.backupPopUpButton selectItemAtIndex:self.indexToSelectAfterSaveOrDiscard];
 }
 
@@ -110,10 +104,11 @@
         [self unmount];
     
     @try {
-        self.fsObject = [[ABFileSystem alloc] initWithBackupPath:path];
+        self.fileSystem = [[ABFileSystem alloc] initWithBackupPath:path];
         __weak typeof(self) this = self;
-        self.fsObject.wasModifiedBlock = ^{
+        self.fileSystem.wasModifiedBlock = ^{
             this.saveButton.enabled = YES;
+            this.discardButton.enabled = YES;
         };
     }
     @catch (NSException *exception) {
@@ -124,15 +119,19 @@
     }
     
     NSString* mountPath = @"/Volumes/iBackupMounter";
-    self.fs = [[GMUserFileSystem alloc] initWithDelegate:self.fsObject isThreadSafe:YES];
+    self.fs = [[GMUserFileSystem alloc] initWithDelegate:self.fileSystem isThreadSafe:YES];
     if (self.readOnlyButton.state == NSOnState) {
         [self.fs mountAtPath:mountPath withOptions:@[@"rdonly", @"volname=iBackupMounter"]];
         self.saveButton.hidden = YES;
+        self.discardButton.hidden = YES;
     } else {
         [self.fs mountAtPath:mountPath withOptions:@[@"volname=iBackupMounter"]];
         self.saveButton.hidden = NO;
+        self.discardButton.hidden = NO;
     }
     
+    [self.sourceTableView selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];
+    [self sourceSelected:self.sourceTableView];
     //[NSString stringWithFormat:@"volicon=%@",[[NSBundle mainBundle] pathForResource:@"Fuse" ofType:@"icns"]]]];
 }
 
@@ -143,8 +142,16 @@
 
 - (IBAction)savePressed:(id)sender
 {
-    [self.fsObject saveChanges];
+    [self.fileSystem saveChanges];
     self.saveButton.enabled = NO;
+    self.discardButton.enabled = NO;
+}
+
+- (IBAction)discardPressed:(id)sender
+{
+    [self.fileSystem discardChanges];
+    self.saveButton.enabled = NO;
+    self.discardButton.enabled = NO;
 }
 
 - (void)unmount
@@ -157,8 +164,12 @@
     NSDictionary* userInfo = [notification userInfo];
     NSString* mountPath = [userInfo objectForKey:kGMUserFileSystemMountPathKey];
     NSString* parentPath = [mountPath stringByDeletingLastPathComponent];
-    [[NSWorkspace sharedWorkspace] selectFile:mountPath
-                     inFileViewerRootedAtPath:parentPath];
+    
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        [[NSWorkspace sharedWorkspace] selectFile:mountPath
+                         inFileViewerRootedAtPath:parentPath];
+    });
 }
 
 - (void)didUnmount:(NSNotification*)notification
@@ -222,6 +233,76 @@
 - (BOOL)windowShouldClose:(id)sender
 {
     return [self applicationShouldTerminate:[NSApplication sharedApplication]];
+}
+
+#pragma mark - Table View
+
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView
+{
+    if (tableView == self.sourceTableView)
+    {
+        return 3;
+    }
+    else
+    {
+        switch (self.sourceTableView.selectedRow)
+        {
+            case 0: return self.fileSystem.networks.count;
+            case 1: return 0;
+            case 2: return 0;
+            default:
+                return 0;
+        }
+    }
+}
+
+- (NSString *)sourceForRow:(NSInteger)row
+{
+    switch (row)
+    {
+        case 0: return @"Networks";
+        case 1: return @"Contacts";
+        case 2: return @"Messages";
+        default:
+            return nil;
+    }
+}
+
+- (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row
+{
+    if (tableView == self.sourceTableView)
+    {
+        NSTextField *cell = [tableView makeViewWithIdentifier:@"cell_1" owner:self];
+        if (cell == nil) {
+            cell = [[NSTextField alloc] initWithFrame:NSMakeRect(0,0,tableView.frame.size.width,10)];
+            cell.bordered = NO;
+            cell.editable = NO;
+            cell.backgroundColor = [NSColor clearColor];
+            cell.identifier = @"cell_1";
+        }
+        
+        cell.stringValue = [self sourceForRow:row];
+        return cell;
+    }
+    else
+    {
+        NSTextField *cell = [tableView makeViewWithIdentifier:@"cell_1" owner:self];
+        if (cell == nil) {
+            cell = [[NSTextField alloc] initWithFrame:NSMakeRect(0,0,tableView.frame.size.width,10)];
+            cell.bordered = NO;
+            cell.editable = NO;
+            cell.backgroundColor = [NSColor clearColor];
+            cell.identifier = @"cell_1";
+        }
+        
+        cell.stringValue = self.fileSystem.networks[row];
+        return cell;
+    }
+}
+
+- (IBAction)sourceSelected:(id)sender
+{
+    [self.dataTableView reloadData];
 }
 
 @end

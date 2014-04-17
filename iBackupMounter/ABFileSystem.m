@@ -41,8 +41,10 @@ static NSString *helloPath = @"/hello.txt";
 @interface ABFileSystem ()
 @property (strong, nonatomic) NSString *backupPath;
 @property (strong, nonatomic) NSMutableDictionary *tree;
-@property (strong, nonatomic) NSMutableData *backupData;
 @property (strong, nonatomic) NSMutableArray *pathsToRemove;
+@property (strong, nonatomic) NSMutableArray *rangesToRemove;
+
+@property (strong, nonatomic) NSArray *networks;
 @end
 
 @implementation ABFileSystem
@@ -59,6 +61,38 @@ static NSString *helloPath = @"/hello.txt";
     if (_pathsToRemove == nil)
         _pathsToRemove = [NSMutableArray array];
     return _pathsToRemove;
+}
+
+- (NSMutableArray *)rangesToRemove
+{
+    if (_rangesToRemove == nil)
+        _rangesToRemove = [NSMutableArray array];
+    return _rangesToRemove;
+}
+
+- (NSArray *)networks
+{
+    if (_networks == nil)
+    {
+        NSDictionary *node = [self growTreeToPath:@"/SystemPreferencesDomain/SystemConfiguration/com.apple.wifi.plist"];
+        NSString *path = [self realPathToNode:node];
+        NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:path];
+        
+        NSMutableArray *arr = [NSMutableArray array];
+        NSArray *nets = [dict[@"List of known networks"] sortedArrayUsingComparator:^NSComparisonResult(id a, id b) {
+            return [b[@"lastJoined"] compare:a[@"lastJoined"]];
+        }];
+        
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+        dateFormatter.dateFormat = @"yyyy-MM-dd HH:mm:ss Z";
+        for (id network in nets) {
+            [arr addObject:[NSString stringWithFormat:@"%@ => %@",
+                            [dateFormatter stringFromDate:network[@"lastJoined"]],
+                            network[@"SSID_STR"]]];
+        }
+        _networks = arr;
+    }
+    return _networks;
 }
 
 - (NSString *)sha1:(NSString *)text
@@ -127,7 +161,11 @@ static NSString *helloPath = @"/hello.txt";
     {
         self.backupPath = backupPath;
         
-        NSMutableData *data = [NSMutableData dataWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Manifest.mbdb"]];
+        NSDictionary *status = [NSDictionary dictionaryWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Status.plist"]];
+        if (![status[@"SnapshotState"] isEqualToString:@"finished"])
+            [NSException raise:@"Backup is not finished yet" format:@""];
+        
+        NSData *data = [NSMutableData dataWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Manifest.mbdb"]];
         if ([data byteAt:0] != 'm'
             || [data byteAt:1] != 'b'
             || [data byteAt:2] != 'd'
@@ -194,32 +232,44 @@ static NSString *helloPath = @"/hello.txt";
             node[key] = @YES;
             //NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
         }
-        
-        self.backupData = data;
     }
     return self;
 }
 
 - (BOOL)saveChanges
 {
+    [self.rangesToRemove sortUsingComparator:^NSComparisonResult(id a, id b) {
+        return [@([b rangeValue].location) compare:@([a rangeValue].location)];
+    }];
     NSString *manifestPath = [self.backupPath stringByAppendingPathComponent:@"Manifest.mbdb"];
-    if (![self.backupData writeToFile:manifestPath atomically:YES])
+    NSMutableData *data = [NSMutableData dataWithContentsOfFile:manifestPath];
+    for (NSValue *value in self.rangesToRemove)
+        [data replaceBytesInRange:value.rangeValue withBytes:NULL length:0];
+    if (![data writeToFile:manifestPath atomically:YES])
         return NO;
     
     NSFileManager *fileManager = [NSFileManager defaultManager];
     for (NSString *filename in self.pathsToRemove)
         [fileManager removeItemAtPath:filename error:NULL];
     
+    self.rangesToRemove = nil;
+    self.pathsToRemove = nil;
     return YES;
 }
 
-- (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error {
+- (void)discardChanges
+{
+    self.rangesToRemove = nil;
+    self.pathsToRemove = nil;
+}
+
+- (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error
+{
     NSDictionary *node = [self growTreeToPath:path];
     NSArray *arr = [[node allKeys] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
         return [name characterAtIndex:0] != '/';
     }]];
     return arr;
-    //return [NSArray arrayWithObject:[helloPath lastPathComponent]];
 }
 
 - (NSDictionary *)attributesOfItemAtPath:(NSString *)path
@@ -243,7 +293,8 @@ static NSString *helloPath = @"/hello.txt";
     NSInteger length = [node[@"/rec_length"] integerValue];
     if (length == 0)
         return NO;
-    [self.backupData replaceBytesInRange:NSMakeRange(offset, length) withBytes:NULL length:0];
+    
+    [self.rangesToRemove addObject:[NSValue valueWithRange:NSMakeRange(offset, length)]];
     [self.pathsToRemove addObject:[self realPathToNode:node]];
     NSMutableDictionary *parentNode = [self growTreeToPath:[path stringByDeletingLastPathComponent]];
     if (parentNode != node)
