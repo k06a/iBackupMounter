@@ -278,6 +278,8 @@ static NSString *helloPath = @"/hello.txt";
 {
     if ([path isEqualToString:@"/"])
         return @{NSFileType:NSFileTypeDirectory};
+    if ([path isEqualToString:@"/AppDomain"])
+        return @{NSFileType:NSFileTypeDirectory};
     
     NSDictionary *node = [self growTreeToPath:path];
     return @{NSFileType:node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
