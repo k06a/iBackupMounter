@@ -41,6 +41,7 @@ static NSString *helloPath = @"/hello.txt";
 @interface ABFileSystem ()
 @property (strong, nonatomic) NSString *backupPath;
 @property (strong, nonatomic) NSMutableDictionary *tree;
+@property (strong, nonatomic) NSMutableDictionary *treeReadOnly;
 @property (strong, nonatomic) NSMutableArray *pathsToRemove;
 @property (strong, nonatomic) NSMutableArray *rangesToRemove;
 
@@ -54,6 +55,15 @@ static NSString *helloPath = @"/hello.txt";
     if (_tree == nil)
         _tree = [NSMutableDictionary dictionary];
     return _tree;
+}
+
+- (NSMutableDictionary *)treeReadOnly
+{
+    if (_treeReadOnly == nil) {
+        _treeReadOnly = [NSMutableDictionary dictionary];
+        _treeReadOnly[@"/"] = self.tree[@"/"];
+    }
+    return _treeReadOnly;
 }
 
 - (NSMutableArray *)pathsToRemove
@@ -80,6 +90,14 @@ static NSString *helloPath = @"/hello.txt";
         
         NSMutableArray *arr = [NSMutableArray array];
         NSArray *nets = [dict[@"List of known networks"] sortedArrayUsingComparator:^NSComparisonResult(id a, id b) {
+            NSDate *adate = a[@"lastJoined"] ?: a[@"lastAutoJoined"];
+            NSDate *bdate = b[@"lastJoined"] ?: b[@"lastAutoJoined"];
+            if (!adate && !bdate)
+                return NSOrderedSame;
+            if (!adate)
+                return NSOrderedDescending;
+            if (!bdate)
+                return NSOrderedAscending;
             return [b[@"lastJoined"] compare:a[@"lastJoined"]];
         }];
         
@@ -87,7 +105,7 @@ static NSString *helloPath = @"/hello.txt";
         dateFormatter.dateFormat = @"yyyy-MM-dd HH:mm:ss Z";
         for (id network in nets) {
             [arr addObject:[NSString stringWithFormat:@"%@ => %@",
-                            [dateFormatter stringFromDate:network[@"lastJoined"]],
+                            [dateFormatter stringFromDate:network[@"lastJoined"]?:network[@"lastAutoJoined"]],
                             network[@"SSID_STR"]]];
         }
         _networks = arr;
@@ -106,10 +124,6 @@ static NSString *helloPath = @"/hello.txt";
 
 - (NSMutableDictionary *)growTreeToPath:(NSString *)path
 {
-    if ([path isEqualToString:@"/"])
-        return self.tree;
-    if (path.length > 1 && [path characterAtIndex:0] == '/')
-        path = [path substringFromIndex:1];
     NSMutableDictionary *node = self.tree;
     for (NSString *token in [path pathComponents]) {
         id nextNode = node[token];
@@ -120,6 +134,12 @@ static NSString *helloPath = @"/hello.txt";
         node = nextNode;
     }
     return node;
+}
+
+- (NSDictionary *)nodeForPath:(NSString *)path
+{
+    //return [self growTreeToPath:path];
+    return self.treeReadOnly[path];
 }
 
 - (NSString *)readString:(NSData *)data offset:(NSInteger *)offset
@@ -217,21 +237,42 @@ static NSString *helloPath = @"/hello.txt";
                 continue;
             
             NSString *virtualPath = domain;
-            if ([virtualPath rangeOfString:@"AppDomain-"].location != NSNotFound)
+            if ([virtualPath rangeOfString:@"AppDomain-"].location != NSNotFound) {
                 virtualPath = [virtualPath stringByReplacingOccurrencesOfString:@"AppDomain-" withString:@"AppDomain/"];
+                if (self.tree[@"/"][@"AppDomain"] == nil) {
+                    NSMutableDictionary *appNode = [self growTreeToPath:@"/AppDomain"];
+                    self.treeReadOnly[virtualPath] = appNode;
+                    appNode[@"/length"] = @(length);
+                    appNode[@"/mode"] = @(mode);
+                    appNode[@"/domain"] = domain;
+                    appNode[@"/path"] = path;
+                    appNode[@"/mdate"] = [NSDate dateWithTimeIntervalSince1970:mtime];
+                    appNode[@"/cdate"] = [NSDate dateWithTimeIntervalSince1970:ctime];
+                    appNode[@"/rec_offset"] = @(begin_offset);
+                    appNode[@"/rec_length"] = @(offset-begin_offset);
+                    appNode[@"/dir"] = @YES;
+                }
+            }
             virtualPath = [virtualPath stringByAppendingPathComponent:path];
+            virtualPath = [@"/" stringByAppendingString:virtualPath];
             NSMutableDictionary *node = [self growTreeToPath:virtualPath];
+            self.treeReadOnly[virtualPath] = node;
             node[@"/length"] = @(length);
             node[@"/mode"] = @(mode);
             node[@"/domain"] = domain;
             node[@"/path"] = path;
-            node[@"/mdate"] = @(mtime);
-            node[@"/cdate"] = @(ctime);
+            node[@"/mdate"] = [NSDate dateWithTimeIntervalSince1970:mtime];
+            node[@"/cdate"] = [NSDate dateWithTimeIntervalSince1970:ctime];
             node[@"/rec_offset"] = @(begin_offset);
             node[@"/rec_length"] = @(offset-begin_offset);
             node[key] = @YES;
             //NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
         }
+        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
+        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
+        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
+        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
+        self.treeReadOnly[@"/AppDomain"] = self.tree[@"/"][@"AppDomain"];
     }
     return self;
 }
@@ -265,7 +306,7 @@ static NSString *helloPath = @"/hello.txt";
 
 - (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error
 {
-    NSDictionary *node = [self growTreeToPath:path];
+    NSDictionary *node = [self nodeForPath:path];
     NSArray *arr = [[node allKeys] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
         return [name characterAtIndex:0] != '/';
     }]];
@@ -278,19 +319,19 @@ static NSString *helloPath = @"/hello.txt";
 {
     if ([path isEqualToString:@"/"])
         return @{NSFileType:NSFileTypeDirectory};
-    if ([path isEqualToString:@"/AppDomain"])
-        return @{NSFileType:NSFileTypeDirectory};
     
-    NSDictionary *node = [self growTreeToPath:path];
+    NSDictionary *node = [self nodeForPath:path];
+    if (!node)
+        return nil;
     return @{NSFileType:node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
              NSFileSize:node[@"/length"],
-             NSFileModificationDate:[NSDate dateWithTimeIntervalSince1970:[node[@"/mdate"] doubleValue]],
-             NSFileCreationDate:[NSDate dateWithTimeIntervalSince1970:[node[@"/cdate"] doubleValue]]};
+             NSFileModificationDate:node[@"/mdate"],
+             NSFileCreationDate:node[@"/cdate"]};
 }
 
 - (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error
 {
-    NSDictionary *node = [self growTreeToPath:path];
+    NSDictionary *node = [self nodeForPath:path];
     NSInteger offset = [node[@"/rec_offset"] integerValue];
     NSInteger length = [node[@"/rec_length"] integerValue];
     if (length == 0)
