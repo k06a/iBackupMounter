@@ -290,8 +290,10 @@ static NSString *helloPath = @"/hello.txt";
         return NO;
     
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    for (NSString *filename in self.pathsToRemove)
-        [fileManager removeItemAtPath:filename error:NULL];
+    for (NSString *path in self.pathsToRemove) {
+        NSDictionary *node = [self growTreeToPath:path];
+        [fileManager removeItemAtPath:[self realPathToNode:node] error:NULL];
+    }
     
     self.rangesToRemove = nil;
     self.pathsToRemove = nil;
@@ -300,6 +302,8 @@ static NSString *helloPath = @"/hello.txt";
 
 - (void)discardChanges
 {
+    for (NSString *path in self.pathsToRemove)
+        self.treeReadOnly[path] = [self growTreeToPath:path];
     self.rangesToRemove = nil;
     self.pathsToRemove = nil;
 }
@@ -338,10 +342,11 @@ static NSString *helloPath = @"/hello.txt";
         return NO;
     
     [self.rangesToRemove addObject:[NSValue valueWithRange:NSMakeRange(offset, length)]];
-    [self.pathsToRemove addObject:[self realPathToNode:node]];
-    NSMutableDictionary *parentNode = [self growTreeToPath:[path stringByDeletingLastPathComponent]];
-    if (parentNode != node)
-        [parentNode removeObjectForKey:[path lastPathComponent]];
+    [self.pathsToRemove addObject:path];
+    [self.treeReadOnly removeObjectForKey:path];
+    //NSMutableDictionary *parentNode = [self growTreeToPath:[path stringByDeletingLastPathComponent]];
+    //if (parentNode != node)
+    //    [parentNode removeObjectForKey:[path lastPathComponent]];
     if (self.wasModifiedBlock)
         self.wasModifiedBlock();
     return YES;
@@ -351,12 +356,52 @@ static NSString *helloPath = @"/hello.txt";
 {
     return [self.backupPath stringByAppendingPathComponent:[self sha1:[NSString stringWithFormat:@"%@-%@",node[@"/domain"],node[@"/path"]]]];
 }
-
+/*
 - (NSData *)contentsAtPath:(NSString *)path
 {
     NSDictionary *node = [self growTreeToPath:path];
     NSString *filename = [self realPathToNode:node];
     return [NSData dataWithContentsOfFile:filename];
+}*/
+
+- (BOOL)openFileAtPath:(NSString *)path
+                  mode:(int)mode
+              userData:(id *)userData
+                 error:(NSError **)error
+{
+    if (mode == O_RDONLY)
+    {
+        NSDictionary *node = [self nodeForPath:path];
+        int fd = open([[self realPathToNode:node] UTF8String], mode);
+        if (fd < 0) {
+            if (error)
+                *error = [NSError errorWithDomain:@"errno" code:errno userInfo:nil];
+            return NO;
+        }
+        *userData = @(fd);
+        return YES;
+    }
+    
+    return NO;
+}
+
+- (int)readFileAtPath:(NSString *)path
+             userData:(id)userData
+               buffer:(char *)buffer
+                 size:(size_t)size
+               offset:(off_t)offset
+                error:(NSError **)error
+{
+    int fd = [userData intValue];
+    lseek(fd, offset, SEEK_SET);
+    return (int)read(fd, buffer, size);
+}
+
+- (void)releaseFileAtPath:(NSString *)path userData:(id)userData
+{
+    NSNumber* num = (NSNumber *)userData;
+    int fd = [num intValue];
+    close(fd);
 }
 
 @end
