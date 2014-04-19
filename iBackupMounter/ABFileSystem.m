@@ -43,7 +43,8 @@ static NSString *helloPath = @"/hello.txt";
 @property (strong, nonatomic) NSMutableDictionary *tree;
 @property (strong, nonatomic) NSMutableDictionary *treeReadOnly;
 @property (strong, nonatomic) NSMutableArray *pathsToRemove;
-@property (strong, nonatomic) NSMutableArray *rangesToRemove;
+@property (strong, nonatomic) NSMutableArray *nodesToRemove;
+@property (strong, nonatomic) NSMutableDictionary *datasToAdd;
 
 @property (strong, nonatomic) NSArray *networks;
 @end
@@ -73,11 +74,18 @@ static NSString *helloPath = @"/hello.txt";
     return _pathsToRemove;
 }
 
-- (NSMutableArray *)rangesToRemove
+- (NSMutableArray *)nodesToRemove
 {
-    if (_rangesToRemove == nil)
-        _rangesToRemove = [NSMutableArray array];
-    return _rangesToRemove;
+    if (_nodesToRemove == nil)
+        _nodesToRemove = [NSMutableArray array];
+    return _nodesToRemove;
+}
+
+- (NSMutableDictionary *)datasToAdd
+{
+    if (_datasToAdd == nil)
+        _datasToAdd = [NSMutableDictionary dictionary];
+    return _datasToAdd;
 }
 
 - (NSArray *)networks
@@ -279,28 +287,29 @@ static NSString *helloPath = @"/hello.txt";
 
 - (BOOL)saveChanges
 {
-    [self.rangesToRemove sortUsingComparator:^NSComparisonResult(id a, id b) {
-        return [@([b rangeValue].location) compare:@([a rangeValue].location)];
+    [self.nodesToRemove sortUsingComparator:^NSComparisonResult(id a, id b) {
+        return [b[@"/rec_offset"] compare:a[@"/rec_offset"]];
     }];
     NSString *manifestPath = [self.backupPath stringByAppendingPathComponent:@"Manifest.mbdb"];
     NSMutableData *data = [NSMutableData dataWithContentsOfFile:manifestPath];
-    for (NSValue *value in self.rangesToRemove)
-        [data replaceBytesInRange:value.rangeValue withBytes:NULL length:0];
+    for (NSDictionary *node in self.nodesToRemove) {
+        [data replaceBytesInRange:NSMakeRange([node[@"rec_offset"] integerValue], [node[@"rec_length"] integerValue]) withBytes:NULL length:0];
+    }
     if (![data writeToFile:manifestPath atomically:YES])
         return NO;
     
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    for (NSString *filename in self.pathsToRemove)
-        [fileManager removeItemAtPath:filename error:NULL];
+    for (NSDictionary *node in self.nodesToRemove)
+        [fileManager removeItemAtPath:[self realPathToNode:node] error:NULL];
     
-    self.rangesToRemove = nil;
+    self.nodesToRemove = nil;
     self.pathsToRemove = nil;
     return YES;
 }
 
 - (void)discardChanges
 {
-    self.rangesToRemove = nil;
+    self.nodesToRemove = nil;
     self.pathsToRemove = nil;
 }
 
@@ -310,7 +319,13 @@ static NSString *helloPath = @"/hello.txt";
     NSArray *arr = [[node allKeys] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
         return [name characterAtIndex:0] != '/';
     }]];
-    return arr;
+    NSArray *arr2 = [self.datasToAdd.allKeys filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
+        NSRange range = [name rangeOfString:path];
+        return (range.location == 0)
+            && ([[name substringFromIndex:range.length]
+                 componentsSeparatedByString:@"/"].count-1 == 1);
+    }]];
+    return [arr arrayByAddingObjectsFromArray:arr2];
 }
 
 - (NSDictionary *)attributesOfItemAtPath:(NSString *)path
@@ -320,9 +335,18 @@ static NSString *helloPath = @"/hello.txt";
     if ([path isEqualToString:@"/"])
         return @{NSFileType:NSFileTypeDirectory};
     
+    //NSLog(@"Attributes for file %@", path);
     NSDictionary *node = [self nodeForPath:path];
-    if (!node)
-        return nil;
+    if (!node) {
+        NSData *data = self.datasToAdd[path];
+        if (data == nil)
+            return nil;
+        node = [self growTreeToPath:path];
+        return @{NSFileType:node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
+                 NSFileSize:@(data.length),
+                 NSFileModificationDate:[NSDate date],
+                 NSFileCreationDate:node[@"/cdate"]};
+    }
     return @{NSFileType:node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
              NSFileSize:node[@"/length"],
              NSFileModificationDate:node[@"/mdate"],
@@ -337,11 +361,11 @@ static NSString *helloPath = @"/hello.txt";
     if (length == 0)
         return NO;
     
-    [self.rangesToRemove addObject:[NSValue valueWithRange:NSMakeRange(offset, length)]];
-    [self.pathsToRemove addObject:[self realPathToNode:node]];
-    NSMutableDictionary *parentNode = [self growTreeToPath:[path stringByDeletingLastPathComponent]];
-    if (parentNode != node)
-        [parentNode removeObjectForKey:[path lastPathComponent]];
+    NSLog(@"Delete file %@", path);
+    [self.nodesToRemove addObject:node];
+    [self.pathsToRemove addObject:path];
+    [self.treeReadOnly removeObjectForKey:path];
+    
     if (self.wasModifiedBlock)
         self.wasModifiedBlock();
     return YES;
@@ -351,12 +375,152 @@ static NSString *helloPath = @"/hello.txt";
 {
     return [self.backupPath stringByAppendingPathComponent:[self sha1:[NSString stringWithFormat:@"%@-%@",node[@"/domain"],node[@"/path"]]]];
 }
-
+/*
 - (NSData *)contentsAtPath:(NSString *)path
 {
     NSDictionary *node = [self growTreeToPath:path];
     NSString *filename = [self realPathToNode:node];
     return [NSData dataWithContentsOfFile:filename];
 }
+*/
+- (BOOL)createFileAtPath:(NSString *)path
+              attributes:(NSDictionary *)attributes
+                userData:(id *)userData
+                   error:(NSError **)error
+{
+    NSInteger index = [self.pathsToRemove indexOfObject:path];
+    if (index == NSNotFound) {
+        NSString *lpc = [path lastPathComponent];
+        path = [path stringByDeletingLastPathComponent];
+        path = [path stringByAppendingPathComponent:[lpc substringFromIndex:2]];
+        index = [self.pathsToRemove indexOfObject:path];
+        if (index != NSNotFound) {
+            NSLog(@"Create file hidden %@", path);
+            return YES;
+        }
+        return NO;
+    }
+    
+    NSLog(@"Create file %@", path);
+    //NSDictionary *node = self.nodesToRemove[index];
+    //int fd = open([[self realPathToNode:node] UTF8String], O_WRONLY);
+    char name[] = "/tmp/iBackupMounter.XXXXXX";
+    int fd = mkstemp(name);
+    if (fd < 0) {
+        if (error)
+            *error = [NSError errorWithDomain:@"errno" code:errno userInfo:nil];
+        return NO;
+    }
+    *userData = @(fd);
+    self.datasToAdd[path] = [NSMutableData data];
+    return YES;
+}
+
+- (BOOL)moveItemAtPath:(NSString *)source
+                toPath:(NSString *)destination
+                 error:(NSError **)error
+{
+    return NO;
+}
+
+- (BOOL)exchangeDataOfItemAtPath:(NSString *)path1
+                  withItemAtPath:(NSString *)path2
+                           error:(NSError **)error
+{
+    return NO;
+}
+
+- (BOOL)openFileAtPath:(NSString *)path
+                  mode:(int)mode
+              userData:(id *)userData
+                 error:(NSError **)error
+{
+    if (mode == O_RDONLY)
+    {
+        NSLog(@"Open file read %@", path);
+        NSDictionary *node = [self nodeForPath:path];
+        if (node == nil && self.datasToAdd[path])
+            return YES;
+        int fd = open([[self realPathToNode:node] UTF8String], mode);
+        if (fd < 0) {
+            if (error)
+                *error = [NSError errorWithDomain:@"errno" code:errno userInfo:nil];
+            return NO;
+        }
+        *userData = @(fd);
+        return YES;
+    }
+    
+    if (mode == O_WRONLY)
+    {
+        NSInteger index = [self.pathsToRemove indexOfObject:path];
+        if (index == NSNotFound) {
+            /*
+             NSString *lpc = [path lastPathComponent];
+             path = [path stringByDeletingLastPathComponent];
+             path = [path stringByAppendingPathComponent:[lpc substringFromIndex:2]];
+             index = [self.pathsToRemove indexOfObject:path];
+             if (index != NSNotFound) {
+             NSLog(@"Create file hidden %@", path);
+             return YES;
+             }*/
+            return NO;
+        }
+        
+        NSLog(@"Open file write %@", path);
+        //NSDictionary *node = self.nodesToRemove[index];
+        //int fd = open([[self realPathToNode:node] UTF8String], O_WRONLY);
+        char name[] = "/tmp/iBackupMounter.XXXXXX";
+        int fd = mkstemp(name);
+        if (fd < 0) {
+            if (error)
+                *error = [NSError errorWithDomain:@"errno" code:errno userInfo:nil];
+            return NO;
+        }
+        *userData = @(fd);
+        self.datasToAdd[path] = [NSMutableData data];
+        return YES;
+    }
+    
+    return NO;
+}
+
+- (int)readFileAtPath:(NSString *)path
+             userData:(id)userData
+               buffer:(char *)buffer
+                 size:(size_t)size
+               offset:(off_t)offset
+                error:(NSError **)error
+{
+    NSLog(@"Read file %@", path);
+    int fd = [userData intValue];
+    lseek(fd, offset, SEEK_SET);
+    return (int)read(fd, buffer, size);
+}
+
+- (int)writeFileAtPath:(NSString *)path
+              userData:(id)userData
+                buffer:(const char *)buffer
+                  size:(size_t)size
+                offset:(off_t)offset
+                 error:(NSError **)error
+{
+    NSMutableData *data = self.datasToAdd[path];
+    if (data == nil)
+        return -1;
+    
+    NSLog(@"Write file %@", path);
+    [data replaceBytesInRange:NSMakeRange(offset,0) withBytes:buffer length:size];
+    return (int)size;
+}
+
+- (void)releaseFileAtPath:(NSString *)path userData:(id)userData
+{
+    NSLog(@"Close file %@", path);
+    NSNumber* num = (NSNumber *)userData;
+    int fd = [num intValue];
+    close(fd);
+}
+
 
 @end
