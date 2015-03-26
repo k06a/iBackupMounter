@@ -237,10 +237,15 @@ static NSString *helloPath = @"/hello.txt";
                 continue;
             
             NSString *virtualPath = domain;
-            if ([virtualPath rangeOfString:@"AppDomain-"].location != NSNotFound) {
-                virtualPath = [virtualPath stringByReplacingOccurrencesOfString:@"AppDomain-" withString:@"AppDomain/"];
-                if (self.tree[@"/"][@"AppDomain"] == nil) {
-                    NSMutableDictionary *appNode = [self growTreeToPath:@"/AppDomain"];
+            if ([virtualPath rangeOfString:@"AppDomain-"].location != NSNotFound ||
+                [virtualPath rangeOfString:@"AppDomainGroup-"].location != NSNotFound ||
+                [virtualPath rangeOfString:@"AppDomainPlugin-"].location != NSNotFound)
+            {
+                NSString *ad = [virtualPath componentsSeparatedByString:@"-"].firstObject;
+                
+                virtualPath = [virtualPath stringByReplacingOccurrencesOfString:[ad stringByAppendingString:@"-"] withString:[ad stringByAppendingString:@"/"]];
+                if (self.tree[@"/"][ad] == nil) {
+                    NSMutableDictionary *appNode = [self growTreeToPath:[@"/" stringByAppendingString:ad]];
                     self.treeReadOnly[virtualPath] = appNode;
                     appNode[@"/length"] = @(length);
                     appNode[@"/mode"] = @(mode);
@@ -269,10 +274,11 @@ static NSString *helloPath = @"/hello.txt";
             //NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
         }
         self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
-        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
-        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
-        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
+        self.tree[@"/"][@"AppDomainGroup"][@"/dir"] = @YES;
+        self.tree[@"/"][@"AppDomainPlugin"][@"/dir"] = @YES;
         self.treeReadOnly[@"/AppDomain"] = self.tree[@"/"][@"AppDomain"];
+        self.treeReadOnly[@"/AppDomainGroup"] = self.tree[@"/"][@"AppDomainGroup"];
+        self.treeReadOnly[@"/AppDomainPlugin"] = self.tree[@"/"][@"AppDomainPlugin"];
     }
     return self;
 }
