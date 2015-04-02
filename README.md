@@ -3,6 +3,8 @@ Mount your iOS iTunes backups to OSX file system:
 
 <img src="https://raw.github.com/k06a/iBackupMounter/master/screenshot.png" width="100%" />
 
+Get latest verison here: https://github.com/k06a/iBackupMounter/releases
+
 ## Features:
 - Read-only mount by default
 - Allow to delete files from backup
