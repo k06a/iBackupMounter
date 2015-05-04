@@ -183,7 +183,7 @@ static NSString *helloPath = @"/hello.txt";
         
         NSDictionary *status = [NSDictionary dictionaryWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Status.plist"]];
         if (![status[@"SnapshotState"] isEqualToString:@"finished"])
-            [NSException raise:@"Backup is not finished yet" format:@""];
+            [NSException raise:@"" format:@"Backup is not finished yet"];
         
         NSData *data = [NSMutableData dataWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Manifest.mbdb"]];
         if ([data byteAt:0] != 'm'
@@ -193,7 +193,7 @@ static NSString *helloPath = @"/hello.txt";
             || [data byteAt:4] != '\x05'
             || [data byteAt:5] != '\x00')
         {
-            [NSException raise:@"Invalid Manifest.mbdb magic header" format:@""];
+            [NSException raise:@"" format:@"Invalid Manifest.mbdb magic header"];
         }
         
         NSInteger offset = 6;

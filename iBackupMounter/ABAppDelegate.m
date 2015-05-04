@@ -113,7 +113,7 @@
     }
     @catch (NSException *exception) {
         NSAlert *alert = [[NSAlert alloc] init];
-        alert.messageText = [@"Unable to mount this backup because of " stringByAppendingString:exception.name];
+        alert.messageText = [@"Unable to mount this backup because: " stringByAppendingString:exception.description];
         [alert runModal];
         return;
     }
