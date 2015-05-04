@@ -52,8 +52,13 @@ static NSString *helloPath = @"/hello.txt";
 
 - (NSMutableDictionary *)tree
 {
-    if (_tree == nil)
+    if (_tree == nil) {
         _tree = [NSMutableDictionary dictionary];
+        [self growTreeToPath:@"/AppDomain"];
+        [self growTreeToPath:@"/AppDomainGroup"];
+        [self growTreeToPath:@"/AppDomainPlugin"];
+    }
+
     return _tree;
 }
 
