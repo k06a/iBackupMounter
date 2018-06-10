@@ -1,9 +1,9 @@
 # iBackupMounter
 Mount your iOS iTunes backups to OSX file system:
 
-Get latest verison here: https://github.com/k06a/iBackupMounter/releases
-
-You can create **unecrypted** iOS backup with iMazing: https://imazing.com/
+1. Install "FUSE for OSX": http://osxfuse.github.io
+2. Create **unecrypted** iOS backup with iMazing: https://imazing.com/
+3. Get latest iBackupMounter here: https://github.com/k06a/iBackupMounter/releases
 
 <img src="https://raw.github.com/k06a/iBackupMounter/master/screenshot.png" width="100%" />
 
