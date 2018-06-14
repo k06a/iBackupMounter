@@ -12,7 +12,7 @@
 
 - (instancetype)initWithBackupPath:(NSString *)backupPath;
 
-@property (strong, nonatomic) void(^wasModifiedBlock)();
+@property (copy, nonatomic) dispatch_block_t wasModifiedBlock;
 @property (readonly, nonatomic) NSArray *networks;
 
 - (BOOL)saveChanges;

@@ -3,55 +3,27 @@
 //  iBackupMounter
 //
 //  Created by Антон Буков on 16.04.14.
-//  Copyright (c) 2014 Codeless Solutions. All rights reserved.
+//  Copyright (c) 2018 Codeless Solutions. All rights reserved.
 //
 
 #include <CommonCrypto/CommonDigest.h>
 #import <OSXFUSE/OSXFUSE.h>
+
 #import "ABFileSystem.h"
 
-static NSString *helloStr = @"Hello World!\n";
-static NSString *helloPath = @"/hello.txt";
-
-@implementation NSData (ByteAt)
-- (NSInteger)byteAt:(NSInteger)index
-{
-    return ((unsigned char *)self.bytes)[index];
-}
-- (NSInteger)wordAt:(NSInteger)index
-{
-    return ([self byteAt:index] << 8) + [self byteAt:index+1];
-}
-- (NSInteger)intAt:(NSInteger)index
-{
-    return ([self wordAt:index] << 16) + [self wordAt:index+2];
-}
-- (int64_t)longAt:(NSInteger)index
-{
-    return (((uint64_t)[self intAt:index]) << 32) + [self intAt:index+4];
-}
-- (NSString *)stringWithHex
-{
-    NSString *result = [[self description] stringByReplacingOccurrencesOfString:@" " withString:@""];
-    result = [result substringWithRange:NSMakeRange(1, [result length] - 2)];
-    return result;
-}
-@end
-
 @interface ABFileSystem ()
+
 @property (strong, nonatomic) NSString *backupPath;
 @property (strong, nonatomic) NSMutableDictionary *tree;
-@property (strong, nonatomic) NSMutableDictionary *treeReadOnly;
 @property (strong, nonatomic) NSMutableArray *pathsToRemove;
-@property (strong, nonatomic) NSMutableArray *rangesToRemove;
 
 @property (strong, nonatomic) NSArray *networks;
+
 @end
 
 @implementation ABFileSystem
 
-- (NSMutableDictionary *)tree
-{
+- (NSMutableDictionary *)tree {
     if (_tree == nil) {
         _tree = [NSMutableDictionary dictionary];
         [self growTreeToPath:@"/AppDomain"];
@@ -62,35 +34,17 @@ static NSString *helloPath = @"/hello.txt";
     return _tree;
 }
 
-- (NSMutableDictionary *)treeReadOnly
-{
-    if (_treeReadOnly == nil) {
-        _treeReadOnly = [NSMutableDictionary dictionary];
-        _treeReadOnly[@"/"] = self.tree[@"/"];
-    }
-    return _treeReadOnly;
-}
-
-- (NSMutableArray *)pathsToRemove
-{
-    if (_pathsToRemove == nil)
+- (NSMutableArray *)pathsToRemove {
+    if (_pathsToRemove == nil) {
         _pathsToRemove = [NSMutableArray array];
+    }
     return _pathsToRemove;
 }
 
-- (NSMutableArray *)rangesToRemove
-{
-    if (_rangesToRemove == nil)
-        _rangesToRemove = [NSMutableArray array];
-    return _rangesToRemove;
-}
-
-- (NSArray *)networks
-{
-    if (_networks == nil)
-    {
+- (NSArray *)networks {
+    if (_networks == nil) {
         NSDictionary *node = [self growTreeToPath:@"/SystemPreferencesDomain/SystemConfiguration/com.apple.wifi.plist"];
-        NSString *path = [self realPathToNode:node];
+        NSString *path = node[@"/realPath"];
         NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:path];
         
         NSMutableArray *arr = [NSMutableArray array];
@@ -118,17 +72,7 @@ static NSString *helloPath = @"/hello.txt";
     return _networks;
 }
 
-- (NSString *)sha1:(NSString *)text
-{
-    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
-    NSData *stringBytes = [text dataUsingEncoding:NSUTF8StringEncoding];
-    if (CC_SHA1(stringBytes.bytes, (uint32_t)stringBytes.length, digest))
-        return [[NSData dataWithBytes:digest length:sizeof(digest)] stringWithHex];
-    return nil;
-}
-
-- (NSMutableDictionary *)growTreeToPath:(NSString *)path
-{
+- (NSMutableDictionary *)growTreeToPath:(NSString *)path {
     NSMutableDictionary *node = self.tree;
     for (NSString *token in [path pathComponents]) {
         id nextNode = node[token];
@@ -141,189 +85,173 @@ static NSString *helloPath = @"/hello.txt";
     return node;
 }
 
-- (NSDictionary *)nodeForPath:(NSString *)path
-{
-    //return [self growTreeToPath:path];
-    return self.treeReadOnly[path];
+- (NSDictionary *)nodeForPath:(NSString *)path {
+    NSMutableDictionary *node = self.tree;
+    for (NSString *token in path.pathComponents) {
+        if (!(node = node[token])) {
+            return nil;
+        }
+    }
+    return node;
 }
 
-- (NSString *)readString:(NSData *)data offset:(NSInteger *)offset
-{
-    NSInteger length = [self readWord:data offset:offset];
-    if (length == 0xFFFF)
-        return @"";
-    *offset += length;
-    return [[NSString alloc] initWithBytes:data.bytes+*offset-length length:length encoding:NSUTF8StringEncoding];
-}
-
-- (NSInteger)readByte:(NSData *)data offset:(NSInteger *)offset
-{
-    *offset += 1;
-    return [data byteAt:*offset-1];
-}
-
-- (NSInteger)readWord:(NSData *)data offset:(NSInteger *)offset
-{
-    *offset += 2;
-    return [data wordAt:*offset-2];
-}
-
-- (NSInteger)readInt:(NSData *)data offset:(NSInteger *)offset
-{
-    *offset += 4;
-    return [data intAt:*offset-4];
-}
-
-- (NSInteger)readLong:(NSData *)data offset:(NSInteger *)offset
-{
-    *offset += 8;
-    return [data longAt:*offset-8];
-}
-
-- (instancetype)initWithBackupPath:(NSString *)backupPath
-{
-    if (self = [super init])
-    {
+- (instancetype)initWithBackupPath:(NSString *)backupPath {
+    if (self = [super init]) {
         self.backupPath = backupPath;
         
         NSDictionary *status = [NSDictionary dictionaryWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Status.plist"]];
-        if (![status[@"SnapshotState"] isEqualToString:@"finished"])
+        if (![status[@"SnapshotState"] isEqualToString:@"finished"]) {
             [NSException raise:@"" format:@"Backup is not finished yet"];
-        
-        NSData *data = [NSMutableData dataWithContentsOfFile:[backupPath stringByAppendingPathComponent:@"Manifest.mbdb"]];
-        if ([data byteAt:0] != 'm'
-            || [data byteAt:1] != 'b'
-            || [data byteAt:2] != 'd'
-            || [data byteAt:3] != 'b'
-            || [data byteAt:4] != '\x05'
-            || [data byteAt:5] != '\x00')
-        {
-            [NSException raise:@"" format:@"Invalid Manifest.mbdb magic header"];
         }
         
-        NSInteger offset = 6;
-        while (offset < data.length)
+        NSString *manifetsDbPath = [backupPath stringByAppendingPathComponent:@"Manifest.db"];
+        
+        if (![[NSFileManager defaultManager] fileExistsAtPath:manifetsDbPath]) {
+            [NSException raise:@"" format:@"Manifest.db not found"];
+        }
+        
+        NSData *data = [NSMutableData dataWithContentsOfFile:manifetsDbPath];
+        if (((char *)data.bytes)[0] != 'S'
+            || ((char *)data.bytes)[1] != 'Q'
+            || ((char *)data.bytes)[2] != 'L'
+            || ((char *)data.bytes)[3] != 'i'
+            || ((char *)data.bytes)[4] != 't'
+            || ((char *)data.bytes)[5] != 'e')
         {
-            NSInteger begin_offset = offset;
-            NSString *domain = [self readString:data offset:&offset];
-            NSString *path = [self readString:data offset:&offset];
-            NSString *linkTarget = [self readString:data offset:&offset];
-            NSString *dataHash = [self readString:data offset:&offset];
-            NSString *encryptionKey = [self readString:data offset:&offset];
-            NSInteger mode = [self readWord:data offset:&offset];
-            uint64_t inode = [self readLong:data offset:&offset];
-            NSInteger uid = [self readInt:data offset:&offset];
-            NSInteger gid = [self readInt:data offset:&offset];
-            NSInteger mtime = [self readInt:data offset:&offset];
-            NSInteger atime = [self readInt:data offset:&offset];
-            NSInteger ctime = [self readInt:data offset:&offset];
-            
-            uint64_t length = [self readLong:data offset:&offset];
-            NSInteger protection = [self readByte:data offset:&offset];
-            NSInteger propertyCount = [self readByte:data offset:&offset];
-            
-            for (NSInteger i = 0; i < propertyCount; i++) {
-                NSString *name = [self readString:data offset:&offset];
-                NSString *value = [self readString:data offset:&offset];
-                
-                /*NSMutableDictionary *node = [self growTreeToPath:[path stringByAppendingPathComponent:name]];
-                node[@"/mode"] = @(mode);
-                node[@"/file"] = @YES;
-                */
-                //NSLog(@"Property %@ = %@",name,value);
+            [NSException raise:@"" format:@"Invalid Manifest.db SQLite header"];
+        }
+        
+        NSPipe *pipe = [NSPipe pipe];
+        NSFileHandle *file = pipe.fileHandleForReading;
+        NSTask *task = [[NSTask alloc] init];
+        task.launchPath = @"/usr/bin/sqlite3";
+        task.arguments = @[
+            manifetsDbPath,
+            @"-csv",
+            @"-bail",
+            @"-cmd", @"select * from Files",
+            @"-cmd", @".quit"
+        ];
+        task.standardOutput = pipe;
+        [task launch];
+        NSData *outputData = [file readDataToEndOfFile];
+        [file closeFile];
+        
+        NSString *output = [[NSString alloc] initWithData:outputData encoding: NSASCIIStringEncoding];
+        //NSLog (@"output:\n%@", output);
+        
+        for (NSString *line in [output componentsSeparatedByString:@"\n"]) {
+            NSArray<NSString *> *tokens = [line componentsSeparatedByString:@","];
+            if (tokens.count != 5) {
+                continue;
             }
             
+            NSString *realPath = [[backupPath stringByAppendingPathComponent:[tokens[0] substringToIndex:2]] stringByAppendingPathComponent:tokens[0]];
+            NSString *domain = (tokens[1].length >= 2 && [tokens[1] hasPrefix:@"\""] && [tokens[1] hasSuffix:@"\""]) ? [tokens[1] substringWithRange:NSMakeRange(1, tokens[1].length - 2)] : tokens[1];
+            NSString *path = (tokens[2].length >= 2 && [tokens[2] hasPrefix:@"\""] && [tokens[2] hasSuffix:@"\""]) ? [tokens[2] substringWithRange:NSMakeRange(1, tokens[2].length - 2)] : tokens[2];
+            NSUInteger length = [[[NSFileManager defaultManager] attributesOfItemAtPath:realPath error:nil] fileSize];
+            
             NSString *key = nil;
-            if (mode & 0x8000)
+            if ([tokens[3] isEqualToString:@"1"])
                 key = @"/file";
-            else if (mode & 0x4000)
+            else if ([tokens[3] isEqualToString:@"2"])
                 key = @"/dir";
             else
                 continue;
             
+//            NSString *plistStr = (tokens[4].length >= 2 && [tokens[4] hasPrefix:@"\""] && [tokens[4] hasSuffix:@"\""]) ? [tokens[4] substringWithRange:NSMakeRange(1, tokens[4].length - 2)] : tokens[4];
+//            NSData *plistData = [plistStr dataUsingEncoding:NSNonLossyASCIIStringEncoding];
+//            NSError *err;
+//            id plist = [NSPropertyListSerialization propertyListWithData:plistData options:NSPropertyListImmutable format:NSPropertyListBinaryFormat_v1_0 error:&err];
+//            NSLog(@"%@", err);
+//            NSLog(@"%@", plist);
+            
             NSString *virtualPath = domain;
-            if ([virtualPath rangeOfString:@"AppDomain-"].location != NSNotFound ||
-                [virtualPath rangeOfString:@"AppDomainGroup-"].location != NSNotFound ||
-                [virtualPath rangeOfString:@"AppDomainPlugin-"].location != NSNotFound)
+            if ([virtualPath hasPrefix:@"AppDomain-"] ||
+                [virtualPath hasPrefix:@"AppDomainGroup-"] ||
+                [virtualPath hasPrefix:@"AppDomainPlugin-"] ||
+                [virtualPath hasPrefix:@"SysContainerDomain-"] ||
+                [virtualPath hasPrefix:@"SysSharedContainerDomain-"])
             {
                 NSString *ad = [virtualPath componentsSeparatedByString:@"-"].firstObject;
                 
                 virtualPath = [virtualPath stringByReplacingOccurrencesOfString:[ad stringByAppendingString:@"-"] withString:[ad stringByAppendingString:@"/"]];
                 if (self.tree[@"/"][ad] == nil) {
                     NSMutableDictionary *appNode = [self growTreeToPath:[@"/" stringByAppendingString:ad]];
-                    self.treeReadOnly[virtualPath] = appNode;
                     appNode[@"/length"] = @(length);
-                    appNode[@"/mode"] = @(mode);
+                    //appNode[@"/mode"] = @(mode);
                     appNode[@"/domain"] = domain;
                     appNode[@"/path"] = path;
-                    appNode[@"/mdate"] = [NSDate dateWithTimeIntervalSince1970:mtime];
-                    appNode[@"/cdate"] = [NSDate dateWithTimeIntervalSince1970:ctime];
-                    appNode[@"/rec_offset"] = @(begin_offset);
-                    appNode[@"/rec_length"] = @(offset-begin_offset);
+                    appNode[@"/mdate"] = [NSDate dateWithTimeIntervalSince1970:0];
+                    appNode[@"/cdate"] = [NSDate dateWithTimeIntervalSince1970:0];
+                    appNode[@"/realPath"] = realPath;
                     appNode[@"/dir"] = @YES;
                 }
             }
-            virtualPath = [virtualPath stringByAppendingPathComponent:path];
-            virtualPath = [@"/" stringByAppendingString:virtualPath];
-            NSMutableDictionary *node = [self growTreeToPath:virtualPath];
-            self.treeReadOnly[virtualPath] = node;
-            node[@"/length"] = @(length);
-            node[@"/mode"] = @(mode);
-            node[@"/domain"] = domain;
-            node[@"/path"] = path;
-            node[@"/mdate"] = [NSDate dateWithTimeIntervalSince1970:mtime];
-            node[@"/cdate"] = [NSDate dateWithTimeIntervalSince1970:ctime];
-            node[@"/rec_offset"] = @(begin_offset);
-            node[@"/rec_length"] = @(offset-begin_offset);
-            node[key] = @YES;
-            //NSLog(@"File %@ %@ %@", path, @(length), @(propertyCount));
+            
+            if (![path isEqualToString:@"\"\""]) {
+                virtualPath = [virtualPath stringByAppendingPathComponent:path];
+                virtualPath = [@"/" stringByAppendingString:virtualPath];
+                NSMutableDictionary *node = [self growTreeToPath:virtualPath];
+                node[@"/length"] = @(length);
+                //node[@"/mode"] = @(mode);
+                node[@"/domain"] = domain;
+                node[@"/path"] = path;
+                node[@"/mdate"] = [NSDate dateWithTimeIntervalSince1970:0];
+                node[@"/cdate"] = [NSDate dateWithTimeIntervalSince1970:0];
+                node[@"/realPath"] = realPath;
+                node[@"/hash"] = tokens[0];
+                node[key] = @YES;
+            }
         }
-        self.tree[@"/"][@"AppDomain"][@"/dir"] = @YES;
-        self.tree[@"/"][@"AppDomainGroup"][@"/dir"] = @YES;
-        self.tree[@"/"][@"AppDomainPlugin"][@"/dir"] = @YES;
-        self.treeReadOnly[@"/AppDomain"] = self.tree[@"/"][@"AppDomain"];
-        self.treeReadOnly[@"/AppDomainGroup"] = self.tree[@"/"][@"AppDomainGroup"];
-        self.treeReadOnly[@"/AppDomainPlugin"] = self.tree[@"/"][@"AppDomainPlugin"];
     }
     return self;
 }
 
-- (BOOL)saveChanges
-{
-    [self.rangesToRemove sortUsingComparator:^NSComparisonResult(id a, id b) {
-        return [@([b rangeValue].location) compare:@([a rangeValue].location)];
-    }];
-    NSString *manifestPath = [self.backupPath stringByAppendingPathComponent:@"Manifest.mbdb"];
-    NSMutableData *data = [NSMutableData dataWithContentsOfFile:manifestPath];
-    for (NSValue *value in self.rangesToRemove)
-        [data replaceBytesInRange:value.rangeValue withBytes:NULL length:0];
-    if (![data writeToFile:manifestPath atomically:YES])
-        return NO;
-    
-    NSFileManager *fileManager = [NSFileManager defaultManager];
+- (BOOL)saveChanges {
+    NSMutableArray *fileIDsArray = [NSMutableArray array];
     for (NSString *path in self.pathsToRemove) {
-        NSDictionary *node = [self growTreeToPath:path];
-        [fileManager removeItemAtPath:[self realPathToNode:node] error:NULL];
+        NSDictionary *node = [self nodeForPath:path];
+        if (node) {
+            [fileIDsArray addObject:node[@"/hash"]];
+        }
+        BOOL deleted = [[NSFileManager defaultManager] removeItemAtPath:node[@"/realPath"] error:NULL];
+        NSLog(@"File %@ deleted? %@", node[@"/realPath"], deleted ? @"Y" : @"N");
     }
+    NSString *fileIDs = [NSString stringWithFormat:@"\"%@\"", [fileIDsArray componentsJoinedByString:@"\",\""]];
     
-    self.rangesToRemove = nil;
+    NSString *manifetsDbPath = [self.backupPath stringByAppendingPathComponent:@"Manifest.db"];
+    
+    NSPipe *pipe = [NSPipe pipe];
+    NSFileHandle *file = pipe.fileHandleForReading;
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = @"/usr/bin/sqlite3";
+    task.arguments = @[
+        manifetsDbPath,
+        @"-csv",
+        @"-bail",
+        @"-cmd", [NSString stringWithFormat:@"delete from Files where fileID in (%@)", fileIDs],
+        @"-cmd", @".quit"
+    ];
+    task.standardOutput = pipe;
+    [task launch];
+    NSData *outputData = [file readDataToEndOfFile];
+    [file closeFile];
+    NSString *output = [[NSString alloc] initWithData:outputData encoding: NSASCIIStringEncoding];
+    NSLog(@"%@", output);
+    
     self.pathsToRemove = nil;
     return YES;
 }
 
-- (void)discardChanges
-{
-    for (NSString *path in self.pathsToRemove)
-        self.treeReadOnly[path] = [self growTreeToPath:path];
-    self.rangesToRemove = nil;
+- (void)discardChanges {
     self.pathsToRemove = nil;
 }
 
-- (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error
-{
+- (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error {
     NSDictionary *node = [self nodeForPath:path];
-    NSArray *arr = [[node allKeys] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
-        return [name characterAtIndex:0] != '/';
+    NSArray *arr = [node.allKeys filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *name, NSDictionary *bindings) {
+        return ![name hasPrefix:@"/"];
     }]];
     return arr;
 }
@@ -332,41 +260,38 @@ static NSString *helloPath = @"/hello.txt";
                                 userData:(id)userData
                                    error:(NSError **)error
 {
-    if ([path isEqualToString:@"/"])
-        return @{NSFileType:NSFileTypeDirectory};
+    if ([path isEqualToString:@"/"]) {
+        return @{
+            NSFileType: NSFileTypeDirectory,
+        };
+    }
     
     NSDictionary *node = [self nodeForPath:path];
-    if (!node)
+    if (!node || [node[@"/del"] boolValue]) {
         return nil;
-    return @{NSFileType:node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
-             NSFileSize:node[@"/length"],
-             NSFileModificationDate:node[@"/mdate"],
-             NSFileCreationDate:node[@"/cdate"]};
+    }
+    
+//    BOOL isFile = [node.allKeys filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *item, NSDictionary<NSString *,id> * _Nullable bindings) {
+//        return ![item hasPrefix:@"/"];
+//    }]].count == 0;
+    
+    return @{
+        NSFileType: node[@"/file"] ? NSFileTypeRegular : NSFileTypeDirectory,
+        NSFileSize: node[@"/length"] ?: @0,
+        NSFileModificationDate: node[@"/mdate"] ?: [NSDate dateWithTimeIntervalSince1970:0],
+        NSFileCreationDate: node[@"/cdate"] ?: [NSDate dateWithTimeIntervalSince1970:0],
+    };
 }
 
-- (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error
-{
-    NSDictionary *node = [self nodeForPath:path];
-    NSInteger offset = [node[@"/rec_offset"] integerValue];
-    NSInteger length = [node[@"/rec_length"] integerValue];
-    if (length == 0)
-        return NO;
-    
-    [self.rangesToRemove addObject:[NSValue valueWithRange:NSMakeRange(offset, length)]];
+- (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error {
+    NSMutableDictionary *node = [self growTreeToPath:path];
+    node[@"/del"] = @YES;
     [self.pathsToRemove addObject:path];
-    [self.treeReadOnly removeObjectForKey:path];
-    //NSMutableDictionary *parentNode = [self growTreeToPath:[path stringByDeletingLastPathComponent]];
-    //if (parentNode != node)
-    //    [parentNode removeObjectForKey:[path lastPathComponent]];
     if (self.wasModifiedBlock)
         self.wasModifiedBlock();
     return YES;
 }
 
-- (NSString *)realPathToNode:(NSDictionary *)node
-{
-    return [self.backupPath stringByAppendingPathComponent:[self sha1:[NSString stringWithFormat:@"%@-%@",node[@"/domain"],node[@"/path"]]]];
-}
 /*
 - (NSData *)contentsAtPath:(NSString *)path
 {
@@ -383,7 +308,7 @@ static NSString *helloPath = @"/hello.txt";
     if (mode == O_RDONLY)
     {
         NSDictionary *node = [self nodeForPath:path];
-        int fd = open([[self realPathToNode:node] UTF8String], mode);
+        int fd = open([node[@"/realPath"] UTF8String], mode);
         if (fd < 0) {
             if (error)
                 *error = [NSError errorWithDomain:@"errno" code:errno userInfo:nil];

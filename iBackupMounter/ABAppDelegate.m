@@ -107,8 +107,10 @@
         self.fileSystem = [[ABFileSystem alloc] initWithBackupPath:path];
         __weak typeof(self) this = self;
         self.fileSystem.wasModifiedBlock = ^{
-            this.saveButton.enabled = YES;
-            this.discardButton.enabled = YES;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                this.saveButton.enabled = YES;
+                this.discardButton.enabled = YES;
+            });
         };
     }
     @catch (NSException *exception) {
